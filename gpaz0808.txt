@@ -1,0 +1,589 @@
+      *--------------------------------------------------------------*
+      *                                                              *
+      *   OBJETIVO: ATUALIZAR CADASTRO DE PRODUTOS COM BASE EM UM    *
+      *  ARQUIVO DE MOVIMENTACAO E GERAR RELATORIOS COM OCORRENCIAS  *
+      *                                                              *
+      *--------------------------------------------------------------*
+      *--------------------------------------------------------------*
+       IDENTIFICATION                      DIVISION.
+      *--------------------------------------------------------------*
+       PROGRAM-ID.                         GPAZ0808.
+       AUTHOR.                             KARINA.
+       DATE-WRITTEN.                       23/09/2020.
+       DATE-COMPILED.                      23/09/2020.
+       SECURITY.                           NENHUMA.
+      *--------------------------------------------------------------*
+       ENVIRONMENT                         DIVISION.
+      *--------------------------------------------------------------*
+       CONFIGURATION                       SECTION.
+       SOURCE-COMPUTER.                    NOTEBRQ.
+       OBJECT-COMPUTER.                    HERCULES01.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+      *
+       INPUT-OUTPUT                        SECTION.
+       FILE-CONTROL.
+           SELECT VCADPRD ASSIGN           TO DA-I-VCADPRD
+           ORGANIZATION IS INDEXED
+           ACCESS MODE IS RANDOM
+           RECORD KEY IS CODPROD-V
+           FILE STATUS IS FS-VCADPRD
+           .
+           SELECT MOVPRD ASSIGN            TO UT-S-MOVPRD
+           FILE STATUS IS FS-MOVPRD
+           .
+           SELECT RELOCOR ASSIGN           TO UT-S-RELOCOR
+           ORGANIZATION IS SEQUENTIAL
+           ACCESS MODE IS SEQUENTIAL
+           FILE STATUS IS FS-RELOCOR
+           .
+      *--------------------------------------------------------------*
+       DATA                                DIVISION.
+      *--------------------------------------------------------------*
+       FILE                                SECTION.
+       FD  VCADPRD
+           RECORD CONTAINS 69 CHARACTERS
+           DATA RECORD IS REG-VCADPRD
+           .
+           COPY CADPROD REPLACING ==:XX-:== BY ====
+                                  ==:YY:== BY ==-V==.
+       FD  MOVPRD
+           LABEL RECORD STANDARD
+           BLOCK CONTAINS 0 RECORDS
+           RECORDING MODE IS F
+           RECORD CONTAINS 70 CHARACTERS
+           DATA RECORD IS REG-MOVPRD
+           .
+           COPY CADPRODM REPLACING ==:XX-:== BY ====
+                                   ==:YY:== BY ==-M==.
+       FD  RELOCOR
+           LABEL RECORD OMITTED
+           RECORDING MODE IS F
+           RECORD CONTAINS 132 CHARACTERS
+           DATA RECORD IS REG-RELOCOR
+           .
+       01  REG-RELOCOR                     PIC X(132).
+      *
+       WORKING-STORAGE                     SECTION.
+      *--------------------------------------------------------------*
+           COPY CADPRODM REPLACING ==:XX-:== BY ==WS-==
+                                   ==:YY:== BY ==-M==.
+           COPY CADPROD REPLACING ==:XX-:== BY ==WS-==
+                                  ==:YY:== BY ==-V==.
+       01  WS-REG-RELOCOR                  PIC X(132).
+      *
+           COPY VARTEMPO.
+           COPY VARDATA.
+           COPY VARTEMPC.
+           COPY VARDATAC.
+      *==> VARIAVEIS DE CABECALHO
+       01  WS-CABEC1.
+           05 WS-DATA-CABEC1               PIC X(10).
+           05 FILLER                       PIC X(02)
+                                                   VALUE SPACES.
+           05 WS-HORA-CABEC1               PIC X(08).
+           05 FILLER                       PIC X(30)
+                                                   VALUE SPACES.
+           05 FILLER                       PIC X(24)
+                                                   VALUE
+              "OCORRENCIAS ATUALIZACAO ".
+           05 FILLER                       PIC X(20)
+                                                   VALUE
+              "CADASTRO DE PRODUTOS".
+           05 FILLER                       PIC X(31)
+                                                   VALUE SPACES.
+           05 FILLER                       PIC X(05)
+                                                   VALUE
+              "PAG. ".
+           05 WS-PAG-CABEC1                PIC Z9.
+       01  WS-CABEC2                       PIC X(132)
+                                                    VALUE ALL "-".
+       01  WS-CABEC3.
+           05 FILLER                       PIC X(05)
+                                                   VALUE SPACES.
+           05 FILLER                       PIC X(18)
+                                                   VALUE
+           "IMAGEM DO REGISTRO".
+           05 FILLER                       PIC X(82)
+                                                   VALUE SPACES.
+           05 FILLER                       PIC X(10)
+                                                   VALUE
+           "OCORRENCIA".
+           05 FILLER                       PIC X(10)
+                                                   VALUE SPACES.
+       01  WS-CABEC4                       PIC X(132)
+                                                    VALUE ALL "-".
+      *==> VARIAVEIS DE DETALHE
+       01  WS-LINDET.
+           05 FILLER                       PIC X(05)
+                                                   VALUE SPACES.
+           05 LD-IMAGEM                    PIC X(70).
+           05 FILLER                       PIC X(30)
+                                                   VALUE SPACES.
+           05 LD-OCORRENCIA                PIC X(18).
+           05 FILLER                       PIC X(09)
+                                                   VALUE SPACES.
+       01  WS-RODAPE1                      PIC X(132)
+                                                    VALUE ALL "-".
+       01  WS-RODAPE2.
+           05 FILLER                       PIC X(22)
+                                                   VALUE
+              "INDUSTRIAS KARINA S/A.".
+           05 FILLER                       PIC X(78)
+                                                   VALUE SPACES.
+           05 FILLER                       PIC X(32)
+                                                   VALUE
+              "SERVIMOS BEM PARA SERVIR SEMPRE.".
+      *==> VARIAVEIS DE CONTADORES
+       77  WS-MOV-LIDO                     PIC 9(02).
+       77  WS-PROD-INCLU                   PIC 9(02).
+       77  WS-PROD-EXCLU                   PIC 9(02).
+       77  WS-PROD-ALT                     PIC 9(02).
+       77  WS-MOV-INVA                     PIC 9(02).
+       77  WS-LINDET-IMP                   PIC 9(02).
+       77  WS-PAGINA                       PIC 9(02).
+       77  WS-CT-LINHA                     PIC 9(02).
+      *==> VARIAVEIS DE CONTADORES
+       77  WS-MOV-LIDO-F                   PIC Z9.
+       77  WS-PROD-INCLU-F                 PIC Z9.
+       77  WS-PROD-EXCLU-F                 PIC Z9.
+       77  WS-PROD-ALT-F                   PIC Z9.
+       77  WS-MOV-INVA-F                   PIC Z9.
+       77  WS-LINDET-IMP-F                 PIC Z9.
+       77  WS-PAGINA-F                     PIC Z9.
+      *==> FLAGS DE STATUS
+       77  WS-MSG                          PIC X(60).
+       77  WS-FS                           PIC X(02).
+       77  WS-PULA                         PIC 9(02).
+      *
+       01  FS-MOVPRD                       PIC X(02).
+           88 SUCESSO-M                            VALUE "00".
+           88 FIMARQUIVO-M                         VALUE "10".
+       01  FS-RELOCOR                      PIC X(02).
+           88 SUCESSO-R                            VALUE "00".
+           88 FIMARQUIVO-R                         VALUE "10".
+       01  FS-VCADPRD                      PIC X(02).
+           88 SUCESSO-V                            VALUE "00".
+           88 FIMARQUIVO-V                         VALUE "10".
+           88 CHAVEDUPLICADA-V                     VALUE "22".
+           88 NAOENCONTRADO-V                      VALUE "23".
+      *
+      *==> MENSAGENS DE ERRO
+       77  WS-MSG01                        PIC X(60)
+                                                   VALUE
+           "ERRO ABERTURA MOVPRD".
+       77  WS-MSG02                        PIC X(60)
+                                                   VALUE
+           "ERRO ABERTURA RELOCOR".
+       77  WS-MSG03                        PIC X(60)
+                                                   VALUE
+           "ERRO ABERTURA VCADPRD".
+       77  WS-MSG04                        PIC X(60)
+                                                   VALUE
+           "ERRO LEITURA MOVPRD".
+       77  WS-MSG05                        PIC X(60)
+                                                   VALUE
+           "MOVIMENTO INVALIDO".
+       77  WS-MSG06                        PIC X(60)
+                                                   VALUE
+           "INCLUSAO EFETUADA".
+       77  WS-MSG07                        PIC X(60)
+                                                   VALUE
+           "EXCLUSAO EFETUADA".
+       77  WS-MSG08                        PIC X(60)
+                                                   VALUE
+           "ANTES ALTERACAO".
+       77  WS-MSG09                        PIC X(60)
+                                                   VALUE
+           "APOS ALTERACAO".
+       77  WS-MSG10                        PIC X(60)
+                                                   VALUE
+           "FILE STATUS NAO ESPERADO".
+       77  WS-MSG11                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-CABEC1".
+       77  WS-MSG12                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-CABEC2".
+       77  WS-MSG13                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-CABEC3".
+       77  WS-MSG14                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-CABEC4".
+       77  WS-MSG15                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-LINDET".
+       77  WS-MSG16                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-RODAPE1".
+       77  WS-MSG17                        PIC X(60)
+                                                   VALUE
+           "ERRO IMPRESSAO WS-RODAPE2".
+       77  WS-MSG18                        PIC X(60)
+                                                   VALUE
+           "ERRO FECHAMENTO MOCPRD".
+       77  WS-MSG19                        PIC X(60)
+                                                   VALUE
+           "ERRO FECHAMENTO VCADPRD".
+       77  WS-MSG20                        PIC X(60)
+                                                   VALUE
+           "ERRO FECHAMENTO RELOCOR".
+      *--------------------------------------------------------------*
+       PROCEDURE                           DIVISION.
+      *--------------------------------------------------------------*
+       0000-GPAZ0808.
+           PERFORM 1000-INICIALIZAR
+           PERFORM 2000-PROCESSAR
+                 UNTIL FIMARQUIVO-M
+           PERFORM 3000-TERMINO
+           STOP RUN
+           .
+      *--------------------------------------------------------------*
+       1000-INICIALIZAR.
+           ACCEPT WS-HORARIO-INICIAL FROM TIME
+      *
+           ACCEPT WS-HORA-CABEC FROM TIME
+           ACCEPT WS-DATA-CABEC-S FROM DATE
+      *
+           MOVE 0                          TO WS-MOV-LIDO
+                                              WS-PROD-INCLU
+                                              WS-PROD-EXCLU
+                                              WS-PROD-ALT
+                                              WS-MOV-INVA
+                                              WS-LINDET-IMP
+                                              WS-PAGINA
+           MOVE 99                         TO WS-CT-LINHA
+      *
+           OPEN INPUT MOVPRD
+           IF NOT SUCESSO-M
+              MOVE WS-MSG01                TO WS-MSG
+              MOVE FS-MOVPRD               TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           OPEN OUTPUT RELOCOR
+           IF NOT SUCESSO-R
+              MOVE WS-MSG02                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           OPEN I-O VCADPRD
+           IF NOT SUCESSO-V
+              MOVE WS-MSG03                TO WS-MSG
+              MOVE FS-VCADPRD              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           PERFORM 1100-LER-MOVPRD
+           .
+      *--------------------------------------------------------------*
+       1100-LER-MOVPRD.
+           READ MOVPRD INTO WS-REG-MOVPRD
+           IF SUCESSO-M
+              ADD 1                        TO WS-MOV-LIDO
+           ELSE
+              IF NOT FIMARQUIVO-M
+                 MOVE WS-MSG04             TO WS-MSG
+                 MOVE FS-MOVPRD            TO WS-FS
+                 PERFORM 9999-ERRO
+              END-IF
+           END-IF
+           .
+      *--------------------------------------------------------------*
+       2000-PROCESSAR.
+           EVALUATE WS-TIPOMOVTO-M
+              WHEN "I"
+                 PERFORM 2100-INCLUSAO
+              WHEN "E"
+                 PERFORM 2200-EXCLUSAO
+              WHEN "A"
+                 PERFORM 2300-ALTERACAO
+              WHEN OTHER
+                 MOVE WS-REG-MOVPRD        TO LD-IMAGEM
+                 MOVE WS-MSG05             TO LD-OCORRENCIA
+                 PERFORM 2400-IMPRIME-RELOCOR
+                 ADD 1                     TO WS-MOV-INVA
+           END-EVALUATE
+           PERFORM 1100-LER-MOVPRD
+           .
+      *--------------------------------------------------------------*
+       2100-INCLUSAO.
+           MOVE WS-CODPROD-M               TO CODPROD-V
+      *
+           READ VCADPRD INTO WS-REG-VCADPRD
+      *
+           IF SUCESSO-V
+              MOVE WS-REG-MOVPRD           TO LD-IMAGEM
+              MOVE WS-MSG05                TO LD-OCORRENCIA
+              PERFORM 2400-IMPRIME-RELOCOR
+              ADD 1                        TO WS-MOV-INVA
+           ELSE
+              IF NAOENCONTRADO-V
+                 MOVE WS-REG-MOVPRD        TO WS-REG-VCADPRD
+                 WRITE REG-VCADPRD FROM WS-REG-VCADPRD
+      *
+                 IF SUCESSO-V
+                    MOVE WS-REG-VCADPRD    TO LD-IMAGEM
+                    MOVE WS-MSG06          TO LD-OCORRENCIA
+                    PERFORM 2400-IMPRIME-RELOCOR
+                    ADD 1                  TO WS-PROD-INCLU
+                 ELSE
+                    IF CHAVEDUPLICADA-V
+                       MOVE WS-REG-MOVPRD  TO LD-IMAGEM
+                       MOVE WS-MSG05       TO LD-OCORRENCIA
+                       PERFORM 2400-IMPRIME-RELOCOR
+                       ADD 1               TO WS-MOV-INVA
+                    ELSE
+                       MOVE WS-MSG10       TO WS-MSG
+                       MOVE FS-VCADPRD     TO WS-FS
+                       PERFORM 9999-ERRO
+                    END-IF
+                 END-IF
+              ELSE
+                 MOVE WS-MSG10             TO WS-MSG
+                 MOVE FS-VCADPRD           TO WS-FS
+                 PERFORM 9999-ERRO
+              END-IF
+           END-IF
+           .
+      *--------------------------------------------------------------*
+       2200-EXCLUSAO.
+           MOVE WS-CODPROD-M               TO CODPROD-V
+           READ VCADPRD INTO WS-REG-VCADPRD
+      *
+           IF SUCESSO-V
+              DELETE VCADPRD
+              IF SUCESSO-V
+                 MOVE WS-REG-VCADPRD       TO LD-IMAGEM
+                 MOVE WS-MSG07             TO LD-OCORRENCIA
+                 PERFORM 2400-IMPRIME-RELOCOR
+                 ADD 1                     TO WS-PROD-EXCLU
+              ELSE
+                 IF NAOENCONTRADO-V
+                    MOVE WS-REG-MOVPRD     TO LD-IMAGEM
+                    MOVE WS-MSG05          TO LD-OCORRENCIA
+                    PERFORM 2400-IMPRIME-RELOCOR
+                    ADD 1                  TO WS-MOV-INVA
+                 ELSE
+                    MOVE WS-MSG10          TO WS-MSG
+                    MOVE FS-VCADPRD        TO WS-FS
+                    PERFORM 9999-ERRO
+                 END-IF
+              END-IF
+           ELSE
+              IF NAOENCONTRADO-V
+                 MOVE WS-REG-MOVPRD        TO LD-IMAGEM
+                 MOVE WS-MSG05             TO LD-OCORRENCIA
+                 PERFORM 2400-IMPRIME-RELOCOR
+                 ADD 1                     TO WS-MOV-INVA
+              ELSE
+                 MOVE WS-MSG10             TO WS-MSG
+                 MOVE FS-VCADPRD           TO WS-FS
+              END-IF
+           END-IF
+           .
+      *--------------------------------------------------------------*
+       2300-ALTERACAO.
+           MOVE WS-CODPROD-M               TO CODPROD-V
+           READ VCADPRD INTO WS-REG-VCADPRD
+           IF SUCESSO-V
+              MOVE WS-REG-VCADPRD          TO LD-IMAGEM
+              MOVE WS-MSG08                TO LD-OCORRENCIA
+              PERFORM 2400-IMPRIME-RELOCOR
+      *
+              IF WS-CODPROD-M NOT EQUAL SPACES
+                 MOVE WS-CODPROD-M         TO WS-CODPROD-V
+              END-IF
+              IF WS-DESCPROD-M NOT EQUAL SPACES
+                 MOVE WS-DESCPROD-M        TO WS-DESCPROD-V
+              END-IF
+              IF WS-UNIDPROD-M NOT EQUAL SPACES
+                 MOVE WS-UNIDPROD-M        TO WS-UNIDPROD-V
+              END-IF
+              IF WS-LOCALPROD-M NOT EQUAL SPACES
+                 MOVE WS-LOCALPROD-M       TO WS-LOCALPROD-V
+              END-IF
+              IF WS-QTDEST-M IS NUMERIC
+                 MOVE WS-QTDEST-M          TO WS-QTDEST-V
+              END-IF
+              IF WS-QTDMAX-M IS NUMERIC
+                 MOVE WS-QTDMAX-M          TO WS-QTDMAX-V
+              END-IF
+              IF WS-QTDMIN-M IS NUMERIC
+                 MOVE WS-QTDMIN-M          TO WS-QTDMIN-V
+              END-IF
+              IF WS-PRECOCOMPRA-M IS NUMERIC
+                 MOVE WS-PRECOCOMPRA-M     TO WS-PRECOCOMPRA-V
+              END-IF
+              IF WS-PRECOVENDA-M IS NUMERIC
+                 MOVE WS-PRECOVENDA-M      TO WS-PRECOVENDA-V
+              END-IF
+              IF WS-PRECOMIS-M IS NUMERIC
+                 MOVE WS-PRECOMIS-M        TO WS-PRECOMIS-V
+              END-IF
+      *
+              REWRITE REG-VCADPRD FROM WS-REG-VCADPRD
+              IF SUCESSO-V
+                 MOVE WS-REG-VCADPRD       TO LD-IMAGEM
+                 MOVE WS-MSG09             TO LD-OCORRENCIA
+                 PERFORM 2400-IMPRIME-RELOCOR
+                 ADD 1                     TO WS-PROD-ALT
+              ELSE
+                 IF NAOENCONTRADO-V
+                    MOVE WS-REG-MOVPRD     TO LD-IMAGEM
+                    MOVE WS-MSG05          TO LD-OCORRENCIA
+                    PERFORM 2400-IMPRIME-RELOCOR
+                    ADD 1                  TO WS-MOV-INVA
+                 ELSE
+                    MOVE WS-MSG10          TO WS-MSG
+                    MOVE FS-VCADPRD        TO WS-FS
+                    PERFORM 9999-ERRO
+                 END-IF
+              END-IF
+           ELSE
+              IF NAOENCONTRADO-V
+                 MOVE WS-REG-MOVPRD        TO LD-IMAGEM
+                 MOVE WS-MSG05             TO LD-OCORRENCIA
+                 PERFORM 2400-IMPRIME-RELOCOR
+                 ADD 1                     TO WS-MOV-INVA
+              ELSE
+                 MOVE WS-MSG10             TO WS-MSG
+                 MOVE FS-VCADPRD           TO WS-FS
+                 PERFORM 9999-ERRO
+              END-IF
+           END-IF
+           .
+      *--------------------------------------------------------------*
+       2400-IMPRIME-RELOCOR.
+           IF WS-CT-LINHA > 59
+              PERFORM 2500-IMPRIME-CABECALHO
+           END-IF
+      *
+           PERFORM 2600-IMPRIME-DETALHE
+      *
+           IF WS-CT-LINHA = 58
+              PERFORM 2700-IMPRIME-RODAPE
+           END-IF
+           .
+      *--------------------------------------------------------------*
+       2500-IMPRIME-CABECALHO.
+           MOVE CORRESPONDING WS-DATA-CABEC-S TO WS-DATA-CABEC-F
+           MOVE CORRESPONDING WS-HORA-CABEC   TO WS-HORA-CABEC-F
+           MOVE WS-DATA-CABEC-F            TO WS-DATA-CABEC1
+           MOVE WS-HORA-CABEC-F            TO WS-HORA-CABEC1
+      *
+           ADD 1                           TO WS-PAGINA
+           MOVE WS-PAGINA                  TO WS-PAG-CABEC1
+      *
+           WRITE REG-RELOCOR FROM WS-CABEC1 AFTER PAGE
+           IF NOT SUCESSO-R
+              MOVE WS-MSG11                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           WRITE REG-RELOCOR FROM WS-CABEC2
+           IF NOT SUCESSO-R
+              MOVE WS-MSG12                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           WRITE REG-RELOCOR FROM WS-CABEC3
+           IF NOT SUCESSO-R
+              MOVE WS-MSG13                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           WRITE REG-RELOCOR FROM WS-CABEC4
+           IF NOT SUCESSO-R
+              MOVE WS-MSG14                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           MOVE 4                          TO WS-CT-LINHA
+           .
+      *--------------------------------------------------------------*
+       2600-IMPRIME-DETALHE.
+           WRITE REG-RELOCOR FROM WS-LINDET
+           IF NOT SUCESSO-R
+              MOVE WS-MSG15                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           ADD 1                           TO WS-CT-LINHA
+           ADD 1                           TO WS-LINDET-IMP
+           .
+      *--------------------------------------------------------------*
+       2700-IMPRIME-RODAPE.
+           COMPUTE WS-PULA = 58 - WS-CT-LINHA
+      *
+           WRITE REG-RELOCOR FROM WS-RODAPE1 AFTER WS-PULA LINES
+           IF NOT SUCESSO-R
+              MOVE WS-MSG16                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           WRITE REG-RELOCOR FROM WS-RODAPE2
+           IF NOT SUCESSO-R
+              MOVE WS-MSG17                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+      *
+           MOVE 60                         TO WS-CT-LINHA
+           .
+      *--------------------------------------------------------------*
+       3000-TERMINO.
+           IF WS-CT-LINHA < 60
+              PERFORM 2700-IMPRIME-RODAPE
+           END-IF
+      *
+           PERFORM 9000-IMPRIME-DATA
+      *
+           CLOSE MOVPRD
+           IF NOT SUCESSO-M
+              MOVE WS-MSG18                TO WS-MSG
+              MOVE FS-MOVPRD               TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           CLOSE VCADPRD
+           IF NOT SUCESSO-V
+              MOVE WS-MSG19                TO WS-MSG
+              MOVE FS-VCADPRD              TO WS-FS
+              PERFORM 9999-ERRO
+           END-IF
+           CLOSE RELOCOR
+           IF NOT SUCESSO-R
+              MOVE WS-MSG20                TO WS-MSG
+              MOVE FS-RELOCOR              TO WS-FS
+           END-IF
+      *
+           ACCEPT WS-HORARIO-FINAL FROM TIME
+           COPY CALCTEMP.
+      *
+           MOVE WS-MOV-LIDO                TO WS-MOV-LIDO-F
+           MOVE WS-PROD-INCLU              TO WS-PROD-INCLU-F
+           MOVE WS-PROD-EXCLU              TO WS-PROD-EXCLU-F
+           MOVE WS-PROD-ALT                TO WS-PROD-ALT-F
+           MOVE WS-MOV-INVA                TO WS-MOV-INVA-F
+           MOVE WS-LINDET-IMP              TO WS-LINDET-IMP-F
+           MOVE WS-PAGINA                  TO WS-PAGINA-F
+      *
+           DISPLAY "=================================================="
+           DISPLAY "MOVIMENTOS LIDOS................: " WS-MOV-LIDO-F
+           DISPLAY "PRODUTOS INCLUIDOS..............: " WS-PROD-INCLU-F
+           DISPLAY "PRODUTOS EXLUIDOS...............: " WS-PROD-EXCLU-F
+           DISPLAY "PRODUTOS ALTERADOS..............: " WS-PROD-ALT-F
+           DISPLAY "MOVIMENTOS INVALIDOS............: " WS-MOV-INVA-F
+           DISPLAY "LINHAS DE DETALHE IMPRESSAS.....: " WS-LINDET-IMP-F
+           DISPLAY "PAGINAS IMPRESSAS...............: " WS-PAGINA-F
+           DISPLAY "TEMPO TOTAL DE PROCESSAMENTO....: "
+                                           WS-TEMPO-PROCESSAMENTO-F
+           DISPLAY "=================================================="
+           .
+           COPY ROTDATA.
+           COPY ROTERRO.
+      *--------------------------------------------------------------*

@@ -1,0 +1,67 @@
+//GPAZ0808  JOB  'KARINA',CLASS=A,MSGCLASS=X,NOTIFY=GPAZ08,TIME=(1,20)
+//JOBLIB    DD   DSN=GP.GERAL.LOADLIB,DISP=SHR
+//*********************************************************************
+//* STEP001 - ORDENAR O ARQUIVO CADPRD PELO CODIGO DO PRODUTO
+//*********************************************************************
+//STEP001  EXEC PGM=SORT
+//SYSPRINT DD  SYSOUT=*
+//SORTIN   DD  DSN=GP.GPAZ08.CADPRD,DISP=SHR
+//SORTOUT  DD  DSN=GP.GPAZ08.CADPRDS,DISP=(OLD,CATLG,DELETE),
+//             SPACE=(TRK,(1,1),RLSE),UNIT=SYSALLDA,
+//             DCB=(DSORG=PS,RECFM=FB,LRECL=69,BLKSIZE=0)
+//SYSIN    DD  *
+  SORT FIELDS=(01,04,CH,A)
+//SYSOUT   DD  SYSOUT=*
+//*********************************************************************
+//* STEP002 - EXCLUIR O VCADPRD E RECRIA-LO
+//*********************************************************************
+//STEP002   EXEC PGM=IDCAMS
+//SYSPRINT  DD   SYSOUT=*
+//SYSIN     DD  *
+ DELETE GP.GPAZ08.VCADPRD PURGE CLUSTER
+ IF  MAXCC = 8 THEN SET MAXCC=0
+ DEFINE  CLUSTER                                  -
+     (NAME (GP.GPAZ08.VCADPRD)                    -
+      VOL (PR39T7)                                -
+      TRK (1,1)                                   -
+      RECORDSIZE (69,69)                          -
+      KEYS (04,0)                                 -
+      SHAREOPTIONS (2,3))                         -
+      DATA(NAME(GP.GPAZ08.VCADPRD.DATA))          -
+      INDEX(NAME(GP.GPAZ08.VCADPRD.INDEX))
+//*********************************************************************
+//* STEP003 - CARREGAR VCADPRD COM BASE NO ARQUIVO CADPRDS
+//*           EXECUTAR O PROGRAMA EEAZ08E8 PARA DAR A CARGA
+//*********************************************************************
+//STEP003   EXEC PGM=EEAZ08E8,COND=(0,NE)
+//VCADPRD   DD DSN=GP.GPAZ08.VCADPRD,DISP=SHR
+//CADPRD    DD DSN=GP.GPAZ08.CADPRDS,DISP=SHR
+//*********************************************************************
+//* STEP004 - IMPRIMIR O ARQUIVO VCADPRD COM O UTILITARIO IDCAMS
+//*********************************************************************
+//STEP004   EXEC PGM=IDCAMS,COND=(0,NE)
+//STEPLIB   DD  DSN=GP.GERAL.LOADLIB,DISP=SHR
+//SYSPRINT  DD  SYSOUT=*
+//VCADPRD   DD  DSN=GP.GPAZ08.VCADPRD,DISP=SHR
+//SYSIN     DD  *
+ PRINT INFILE(VCADPRD) CHAR
+//*
+//*********************************************************************
+//* STEP005 - EXECUTAR O PROGRAMA GPAZ0808 PARA ATUALIZAR VCADPRD
+//*********************************************************************
+//STEP005   EXEC PGM=GPAZ0808,COND=(0,NE)
+//STEPLIB   DD DSN=GP.GERAL.LOADLIB,DISP=SHR
+//VCADPRD   DD DSN=GP.GPAZ08.VCADPRD,DISP=SHR
+//MOVPRD    DD DSN=GP.GPAZ08.MOVPRD,DISP=SHR
+//RELOCOR   DD SYSOUT=*
+//*
+//*********************************************************************
+//* STEP006 - VAMOS IMPRIMIR O ARQUIVO VCADPRD COM O UTILITARIO IDCAMS
+//*********************************************************************
+//STEP006   EXEC PGM=IDCAMS,COND=(0,NE)
+//STEPLIB   DD  DSN=GP.GERAL.LOADLIB,DISP=SHR
+//SYSPRINT  DD  SYSOUT=*
+//VCADPRD   DD  DSN=GP.GPAZ08.VCADPRD,DISP=SHR
+//SYSIN     DD  *
+ PRINT INFILE(VCADPRD) CHAR
+//*
